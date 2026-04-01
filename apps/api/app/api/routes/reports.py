@@ -1,7 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi.responses import FileResponse
 
 from app.api.deps import get_current_user
 from app.core.db import get_conn
+from app.services.export_service import export_markdown_to_docx, export_markdown_to_pdf
 from app.services.report_job_service import get_report_citations, get_report_charts, get_report_markdown
 
 router = APIRouter(prefix="/reports", tags=["reports"])
@@ -43,3 +45,17 @@ def get_charts(job_id: str, current_user: dict = Depends(get_current_user)):
 def get_citations(job_id: str, current_user: dict = Depends(get_current_user)):
     citations = get_report_citations(job_id, current_user["organization_id"])
     return {"job_id": job_id, "citations": citations}
+
+
+@router.get("/{job_id}/export")
+def export_report(job_id: str, format: str = Query("docx"), current_user: dict = Depends(get_current_user)):
+    markdown = get_report_markdown(job_id, current_user["organization_id"])
+    if markdown is None:
+        raise HTTPException(status_code=404, detail="report not found")
+    if format == "docx":
+        path = export_markdown_to_docx(job_id, markdown)
+        return FileResponse(path=str(path), filename=path.name, media_type="application/vnd.openxmlformats-officedocument.wordprocessingml.document")
+    if format == "pdf":
+        path = export_markdown_to_pdf(job_id, markdown)
+        return FileResponse(path=str(path), filename=path.name, media_type="application/pdf")
+    raise HTTPException(status_code=400, detail="supported formats: docx, pdf")

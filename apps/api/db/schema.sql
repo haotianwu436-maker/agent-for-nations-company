@@ -3,6 +3,7 @@ CREATE EXTENSION IF NOT EXISTS "pgcrypto";
 CREATE TABLE IF NOT EXISTS organizations (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
     name VARCHAR(255) NOT NULL,
+    logo_url TEXT,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
@@ -106,11 +107,36 @@ CREATE TABLE IF NOT EXISTS report_charts (
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
 );
 
+CREATE TABLE IF NOT EXISTS kb_documents (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    uploaded_by UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    title VARCHAR(255) NOT NULL,
+    source_name VARCHAR(255),
+    content TEXT NOT NULL,
+    parsed_file_type VARCHAR(20) NOT NULL DEFAULT 'text',
+    docling_used BOOLEAN NOT NULL DEFAULT FALSE,
+    docling_fallback_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE TABLE IF NOT EXISTS kb_chunks (
+    id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+    organization_id UUID NOT NULL REFERENCES organizations(id) ON DELETE CASCADE,
+    document_id UUID NOT NULL REFERENCES kb_documents(id) ON DELETE CASCADE,
+    chunk_index INT NOT NULL,
+    chunk_text TEXT NOT NULL,
+    token_count INT NOT NULL DEFAULT 0,
+    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
 CREATE INDEX IF NOT EXISTS idx_report_jobs_org_status ON report_jobs(organization_id, status);
 CREATE INDEX IF NOT EXISTS idx_source_items_job ON source_items(job_id);
 CREATE INDEX IF NOT EXISTS idx_report_sections_job ON report_sections(job_id);
 CREATE INDEX IF NOT EXISTS idx_citations_job ON citations(job_id);
 CREATE INDEX IF NOT EXISTS idx_report_charts_job ON report_charts(job_id);
+CREATE INDEX IF NOT EXISTS idx_kb_documents_org ON kb_documents(organization_id);
+CREATE INDEX IF NOT EXISTS idx_kb_chunks_org_doc ON kb_chunks(organization_id, document_id);
 
 INSERT INTO roles (code, name)
 VALUES ('owner', '母账号'), ('member', '子账号')
@@ -121,11 +147,11 @@ DECLARE
   org_id UUID;
   owner_id UUID;
 BEGIN
-  INSERT INTO organizations(name) VALUES ('默认机构')
+  INSERT INTO organizations(name, logo_url) VALUES ('央视网联 AI 媒体实验室', 'https://dummyimage.com/120x40/0f172a/ffffff&text=CCTV+AI')
   RETURNING id INTO org_id;
 
   INSERT INTO users(organization_id, email, password_hash, display_name)
-  VALUES (org_id, 'owner@demo.local', 'demo_hashed_password', '默认母账号')
+  VALUES (org_id, 'owner@demo.com', 'demo_hashed_password', '默认母账号')
   RETURNING id INTO owner_id;
 
   INSERT INTO user_roles(user_id, role_id)

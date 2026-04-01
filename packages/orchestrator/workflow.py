@@ -12,6 +12,7 @@ from urllib.parse import urlparse
 from packages.citation.service import build_citations_for_sections, validate_citations
 from packages.crawler.service import crawl_by_whitelist
 from packages.reporting.renderer import SECTION_KEYS, render_markdown
+from packages.tools.service import run_tools_on_items
 from packages.visualization.service import generate_chart_data
 
 logger = logging.getLogger(__name__)
@@ -43,6 +44,8 @@ class WorkflowState:
     markdown: str = ""
     charts: list[dict] = field(default_factory=list)
     structured_signals: list[dict] = field(default_factory=list)
+    kb_chunks: list[dict] = field(default_factory=list)
+    tool_results: list[dict] = field(default_factory=list)
     stats: dict = field(default_factory=dict)
 
 
@@ -135,11 +138,12 @@ def plan_sources(state: WorkflowState) -> WorkflowState:
 
 
 def crawl_sources(state: WorkflowState) -> WorkflowState:
-    crawled = crawl_by_whitelist(
+    crawled, crawl_meta = crawl_by_whitelist(
         whitelist=state.source_whitelist,
         keywords=state.keywords,
         start_at=state.time_range_start,
         end_at=state.time_range_end,
+        return_meta=True,
     )
     state.documents = crawled
     state.stats["crawl_total"] = len(crawled)
@@ -147,6 +151,7 @@ def crawl_sources(state: WorkflowState) -> WorkflowState:
     state.stats["crawl_failed"] = len([x for x in crawled if x.get("fetch_status") == "failed"])
     non_empty = len([x for x in crawled if len((x.get("cleaned_text") or "").strip()) >= 120])
     state.stats["content_non_empty_rate"] = round(non_empty / max(len(crawled), 1), 4)
+    state.stats["crawl_meta"] = crawl_meta
     return state
 
 
@@ -261,6 +266,13 @@ def classify_documents(state: WorkflowState) -> WorkflowState:
     state.section_map = section_map
     state.stats["classification_hits"] = hit_count
     state.stats["section_distribution"] = {k: len(v) for k, v in section_map.items()}
+    return state
+
+
+def run_tools(state: WorkflowState) -> WorkflowState:
+    payload = run_tools_on_items(state.deduplicated_documents, limit=5)
+    state.tool_results = payload["tool_results"]
+    state.stats["tool_stats"] = payload["tool_stats"]
     return state
 
 
@@ -499,6 +511,18 @@ def generate_sections(state: WorkflowState) -> WorkflowState:
                 f"标题：{item.get('title','')}\n"
                 f"正文：{(item.get('cleaned_text','')[:1500])}"
             )
+            kb_evidence = []
+            if state.kb_chunks:
+                try:
+                    from packages.retrieval.service import retrieve_evidence
+
+                    kb_evidence = retrieve_evidence(
+                        query=f"{item.get('title','')} {signal.get('theme','')}",
+                        kb_chunks=state.kb_chunks,
+                        top_k=1,
+                    )
+                except Exception:
+                    kb_evidence = []
             llm_status = "disabled"
             model_text = None
             if state.use_llm_writing:
@@ -522,6 +546,8 @@ def generate_sections(state: WorkflowState) -> WorkflowState:
                 paragraph = f"事件描述：{event}\n行业影响：{impact}\n{sig_risk}"
                 source_mode = "extractive"
             paragraph = _normalize_paragraph_text(ensure_full_paragraph(paragraph, item, signal))
+            if kb_evidence:
+                paragraph += f"\n知识库参考：{kb_evidence[0].get('title','知识库文档')}（{kb_evidence[0].get('source_name','knowledge-base')}）"
             lines.append(f"- {paragraph}\n  来源：{source}")
             paragraph_rows.append(
                 {
@@ -717,6 +743,7 @@ def execute_workflow(initial_state: WorkflowState, persist_fn: Callable[[Workflo
         ("crawl_sources", crawl_sources),
         ("clean_documents", clean_documents),
         ("deduplicate_documents", deduplicate_documents),
+        ("run_tools", run_tools),
         ("classify_documents", classify_documents),
         ("generate_sections", generate_sections),
         ("generate_citations", generate_citations),
