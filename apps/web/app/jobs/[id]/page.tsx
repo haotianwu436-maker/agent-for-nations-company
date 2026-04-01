@@ -6,6 +6,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_BASE_URL || "http://localhost:8000/
 
 export default function JobDetailPage({ params }: { params: { id: string } }) {
   const [job, setJob] = useState<any>(null);
+  const [brand, setBrand] = useState({ name: "媒体行业 AI 资讯报告撰写智能体", logo_url: "" });
   const [markdown, setMarkdown] = useState("");
   const [charts, setCharts] = useState<any[]>([]);
   const [citations, setCitations] = useState<any[]>([]);
@@ -20,10 +21,12 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         fetch(`${API_BASE}/reports/${params.id}/charts`, { headers: { Authorization: `Bearer ${token || ""}` } }),
         fetch(`${API_BASE}/reports/${params.id}/citations`, { headers: { Authorization: `Bearer ${token || ""}` } })
       ]);
+      const brandRes = await fetch(`${API_BASE}/organization/branding`, { headers: { Authorization: `Bearer ${token || ""}` } });
       setJob(jobRes.ok ? await jobRes.json() : null);
       setMarkdown(mdRes.ok ? (await mdRes.json()).markdown || "" : "");
       setCharts(chartRes.ok ? (await chartRes.json()).charts || [] : []);
       setCitations(citeRes.ok ? (await citeRes.json()).citations || [] : []);
+      setBrand(brandRes.ok ? await brandRes.json() : brand);
     } catch {
       setJob(null);
       setMarkdown("");
@@ -53,6 +56,10 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
 
   return (
     <div className="card">
+      <div className="brand-header">
+        {brand.logo_url ? <img src={brand.logo_url} alt="logo" className="brand-logo" /> : null}
+        <h2>{brand.name}</h2>
+      </div>
       <h2>任务详情</h2>
       <pre>{job ? JSON.stringify(job, null, 2) : "暂无任务信息"}</pre>
       <button onClick={runJob}>执行任务</button>
@@ -78,6 +85,10 @@ export default function JobDetailPage({ params }: { params: { id: string } }) {
         <pre>{JSON.stringify(charts, null, 2)}</pre>
       )}
       <a href={`/reports/${params.id}/preview`}>查看报告预览</a>
+      <p />
+      <a href={`${API_BASE}/reports/${params.id}/export?format=docx`} target="_blank" rel="noreferrer">
+        下载 DOCX 报告
+      </a>
     </div>
   );
 }

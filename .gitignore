@@ -31,6 +31,7 @@ Thumbs.db
 # Build / artifacts
 dist/
 build/
+apps/api/exports/
 
 # Internal script outputs (keep demo outputs under demo/)
 scripts/*_output.json

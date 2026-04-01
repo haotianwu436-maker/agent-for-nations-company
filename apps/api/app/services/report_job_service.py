@@ -18,6 +18,7 @@ if "/packages" not in sys.path:
     sys.path.append("/packages")
 
 from packages.orchestrator.workflow import WorkflowState, execute_workflow  # noqa: E402
+from app.services.kb_service import load_kb_chunks
 
 
 def create_report_job(data: dict, organization_id: str, user_id: str) -> dict:
@@ -245,6 +246,10 @@ def run_report_job(job_id: str, organization_id: str) -> dict | None:
             language=language or "zh-CN",
             use_llm_writing=use_llm_writing,
         )
+        kb_chunks = load_kb_chunks(organization_id)
+        state.kb_chunks = kb_chunks
+        state.stats["kb_chunks_loaded"] = len(kb_chunks)
+        state.stats["kb_ready"] = len(kb_chunks) > 0
         final_state = execute_workflow(state, persist_fn=_persist_workflow_state)
         with get_conn() as conn:
             with conn.cursor() as cur:

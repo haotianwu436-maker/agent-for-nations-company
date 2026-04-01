@@ -127,6 +127,61 @@ def _domain_allowed(url: str, whitelist: list[str]) -> bool:
     return host in allow_hosts
 
 
+MAINSTREAM_HOSTS = {
+    "arstechnica.com",
+    "techcrunch.com",
+    "theverge.com",
+    "wired.com",
+    "reuters.com",
+    "nytimes.com",
+}
+VERTICAL_HOSTS = {
+    "anthropic.com",
+    "openai.com",
+    "deepmind.google",
+    "huggingface.co",
+}
+LOW_QUALITY_HOSTS = {
+    "example.com",
+    "blogspot.com",
+}
+
+
+def _host_tier(host: str) -> str:
+    if host in MAINSTREAM_HOSTS:
+        return "mainstream"
+    if host in VERTICAL_HOSTS:
+        return "vertical"
+    return "other"
+
+
+def _is_blacklisted(host: str) -> bool:
+    return any(b in host for b in LOW_QUALITY_HOSTS)
+
+
+def _extract_first_level_links(entry_url: str, timeout_seconds: int = 10) -> list[str]:
+    try:
+        resp = requests.get(entry_url, timeout=timeout_seconds, headers={"User-Agent": "media-ai-agent/0.1"})
+        resp.raise_for_status()
+    except Exception:
+        return []
+    soup = BeautifulSoup(resp.text, "html.parser")
+    base_host = urlparse(entry_url).netloc
+    links = []
+    for a in soup.find_all("a", href=True):
+        href = a.get("href", "").strip()
+        if not href.startswith("http"):
+            continue
+        parsed = urlparse(href)
+        if parsed.netloc != base_host:
+            continue
+        if href.count("/") <= 3:
+            # 首页/栏目页通常过浅，跳过
+            continue
+        links.append(f"{parsed.scheme}://{parsed.netloc}{parsed.path}")
+    return list(dict.fromkeys(links))[:20]
+
+
 def _crawl_one_with_requests(url: str, timeout_seconds: int, retries: int) -> CrawlResult:
     attempt = 0
     while attempt <= retries:
@@ -185,11 +240,43 @@ def _crawl_with_crawl4ai(url: str, timeout_seconds: int) -> CrawlResult:
     return asyncio.run(_run())
 
 
-def crawl_by_whitelist(whitelist: list[str], keywords: list[str], start_at: str, end_at: str, timeout_seconds: int = 10, retries: int = 2) -> list[dict]:
+def crawl_by_whitelist(
+    whitelist: list[str],
+    keywords: list[str],
+    start_at: str,
+    end_at: str,
+    timeout_seconds: int = 10,
+    retries: int = 2,
+    return_meta: bool = False,
+) -> list[dict] | tuple[list[dict], dict]:
     results: list[dict] = []
     start_dt = parse_datetime(start_at)
     end_dt = parse_datetime(end_at)
+    entry_pages = 0
+    extracted_links = 0
+    blocked_blacklist = 0
+    ordered_targets: list[tuple[str, int]] = []
     for target in whitelist:
+        host = urlparse(target).netloc
+        if _is_blacklisted(host):
+            blocked_blacklist += 1
+            continue
+        tier = _host_tier(host)
+        priority = 0 if tier == "mainstream" else (1 if tier == "vertical" else 2)
+        ordered_targets.append((target, priority))
+    ordered_targets.sort(key=lambda x: x[1])
+    expanded_targets: list[str] = []
+    for target, _ in ordered_targets:
+        parsed = urlparse(target)
+        if parsed.path in ("", "/"):
+            entry_pages += 1
+            links = _extract_first_level_links(target, timeout_seconds=timeout_seconds)
+            extracted_links += len(links)
+            expanded_targets.extend(links)
+        expanded_targets.append(target)
+    expanded_targets = list(dict.fromkeys(expanded_targets))
+
+    for target in expanded_targets:
         if not _domain_allowed(target, whitelist):
             logger.warning("domain blocked by whitelist: %s", target)
             continue
@@ -216,4 +303,19 @@ def crawl_by_whitelist(whitelist: list[str], keywords: list[str], start_at: str,
 
         results.append(as_dict)
 
+    meta = {
+        "entry_pages": entry_pages,
+        "first_level_links": extracted_links,
+        "effective_targets": len(expanded_targets),
+        "effective_success": len([x for x in results if x.get("fetch_status") == "success"]),
+        "source_filter": {
+            "input_targets": len(whitelist),
+            "blocked_blacklist": blocked_blacklist,
+            "mainstream_input": len([1 for t in whitelist if _host_tier(urlparse(t).netloc) == "mainstream"]),
+            "vertical_input": len([1 for t in whitelist if _host_tier(urlparse(t).netloc) == "vertical"]),
+            "other_input": len([1 for t in whitelist if _host_tier(urlparse(t).netloc) == "other"]),
+        },
+    }
+    if return_meta:
+        return results, meta
     return results
