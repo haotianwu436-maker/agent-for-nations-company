@@ -1,0 +1,15 @@
+{
+  "report_type": "weekly",
+  "keywords": ["AI", "媒体", "AIGC", "新闻生产"],
+  "time_range_start": "2026-03-25T00:00:00Z",
+  "time_range_end": "2026-04-01T00:00:00Z",
+  "source_whitelist": [
+    "https://arstechnica.com/ai/2026/03/entire-claude-code-cli-source-code-leaks-thanks-to-exposed-map-file/",
+    "https://arstechnica.com/ai/2026/03/how-did-anthropic-measure-ais-theoretical-capabilities-in-the-job-market/",
+    "https://arstechnica.com/ai/2026/03/openai-brings-plugins-to-codex-closing-some-of-the-gap-with-claude-code/",
+    "https://arstechnica.com/ai/2026/03/the-debut-of-gemini-3-1-flash-live-could-make-it-harder-to-know-if-youre-talking-to-a-robot/",
+    "https://www.anthropic.com/news/announcing-our-updated-responsible-scaling-policy"
+  ],
+  "template_name": "global-media-weekly-v1",
+  "language": "zh-CN"
+}

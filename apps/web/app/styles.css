@@ -1,0 +1,26 @@
+body {
+  font-family: "PingFang SC", "Microsoft YaHei", sans-serif;
+  background: #f7f8fa;
+  color: #1f2937;
+}
+
+a {
+  color: #2563eb;
+  text-decoration: none;
+}
+
+input,
+button,
+select,
+textarea {
+  padding: 8px;
+  margin: 4px 0;
+}
+
+.card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 16px;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08);
+  margin-bottom: 16px;
+}
