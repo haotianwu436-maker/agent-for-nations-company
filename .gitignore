@@ -1,0 +1,38 @@
+# Python
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.venv/
+venv/
+
+# Node / Next.js
+node_modules/
+.next/
+out/
+
+# Env / secrets
+.env
+.env.local
+.env.*.local
+
+# OS / IDE
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+
+# Logs / runtime files
+*.log
+*.pid
+*.tmp
+
+# Build / artifacts
+dist/
+build/
+
+# Internal script outputs (keep demo outputs under demo/)
+scripts/*_output.json
+scripts/*_report.md
+scripts/demo_output.json
