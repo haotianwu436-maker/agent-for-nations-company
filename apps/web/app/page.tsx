@@ -1,9 +1,15 @@
+import { DEFAULT_BRAND } from "../lib/default-brand";
+
 export default function HomePage() {
   return (
     <div className="card">
-      <h1>媒体行业 AI 资讯报告撰写智能体</h1>
-      <p>这是 MVP 入口，请从登录开始。</p>
-      <a href="/login">进入登录页</a>
+      <h1>{DEFAULT_BRAND.name}</h1>
+      <p>媒体行业 AI 资讯报告撰写智能体 · 验收驾驶舱。可从左侧导航进入任务、知识库、品牌配置。</p>
+      <div className="row">
+        <a className="btn btn-primary" href="/login">登录</a>
+        <a className="btn" href="/jobs">任务列表</a>
+        <a className="btn" href="/knowledge">知识库</a>
+      </div>
     </div>
   );
 }

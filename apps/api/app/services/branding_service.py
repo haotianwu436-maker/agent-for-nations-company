@@ -7,7 +7,10 @@ def get_branding(organization_id: str) -> dict:
             cur.execute("SELECT name, COALESCE(logo_url, '') FROM organizations WHERE id = %s", (organization_id,))
             row = cur.fetchone()
             if not row:
-                return {"name": "媒体行业 AI 报告智能体", "logo_url": ""}
+                return {
+                    "name": "中央广播电视总台研究院新媒体研究部",
+                    "logo_url": "/cmg-new-media-brand.png",
+                }
             return {"name": row[0], "logo_url": row[1]}
 
 

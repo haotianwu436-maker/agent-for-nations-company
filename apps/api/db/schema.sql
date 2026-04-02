@@ -147,7 +147,7 @@ DECLARE
   org_id UUID;
   owner_id UUID;
 BEGIN
-  INSERT INTO organizations(name, logo_url) VALUES ('央视网联 AI 媒体实验室', 'https://dummyimage.com/120x40/0f172a/ffffff&text=CCTV+AI')
+  INSERT INTO organizations(name, logo_url) VALUES ('中央广播电视总台研究院新媒体研究部', '/cmg-new-media-brand.png')
   RETURNING id INTO org_id;
 
   INSERT INTO users(organization_id, email, password_hash, display_name)
