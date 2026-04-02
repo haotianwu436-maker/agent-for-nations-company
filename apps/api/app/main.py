@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
+from app.api.routes.agent import router as agent_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.knowledge import router as knowledge_router
 from app.api.routes.organization import router as organization_router
@@ -55,6 +56,7 @@ def healthz():
 
 
 app.include_router(auth_router, prefix="/api/v1")
+app.include_router(agent_router, prefix="/api/v1")
 app.include_router(report_jobs_router, prefix="/api/v1")
 app.include_router(reports_router, prefix="/api/v1")
 app.include_router(knowledge_router, prefix="/api/v1")

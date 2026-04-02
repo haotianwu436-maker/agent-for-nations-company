@@ -7,6 +7,7 @@ python-jose==3.3.0
 passlib==1.7.4
 email-validator==2.2.0
 langgraph==0.2.35
+langchain-core>=0.3.0,<0.4.0
 langchain==0.3.0
 chromadb==0.5.5
 crawl4ai==0.4.247

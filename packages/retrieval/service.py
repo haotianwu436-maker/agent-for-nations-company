@@ -1,3 +1,6 @@
+"""
+内部知识检索（当前：关键词重叠）。Phase 3：PDF/Word → 解析分块 → PGVector，供 retriever_node 与 Crawl4AI 混合召回。
+"""
 import re
 
 

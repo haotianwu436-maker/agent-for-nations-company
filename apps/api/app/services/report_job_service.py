@@ -212,6 +212,52 @@ def _persist_workflow_state(state: WorkflowState) -> None:
             )
 
 
+def set_report_job_running_for_agent(job_id: str, organization_id: str) -> bool:
+    """供 Agent 流使用：将任务标为 running（与 run_report_job 开头一致）。"""
+    now = datetime.now(timezone.utc)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE report_jobs
+                SET status = 'running', status_message = 'agent workflow started', started_at = %s, updated_at = %s
+                WHERE id = %s AND organization_id = %s
+                RETURNING id
+                """,
+                (now, now, job_id, organization_id),
+            )
+            return cur.fetchone() is not None
+
+
+def set_report_job_finished(
+    job_id: str,
+    success: bool,
+    status_message: str,
+    error_message: str = "",
+) -> None:
+    now = datetime.now(timezone.utc)
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            if success:
+                cur.execute(
+                    """
+                    UPDATE report_jobs
+                    SET status = 'success', status_message = %s, finished_at = %s, updated_at = %s
+                    WHERE id = %s
+                    """,
+                    (status_message[:2000], now, now, job_id),
+                )
+            else:
+                cur.execute(
+                    """
+                    UPDATE report_jobs
+                    SET status = 'failed', status_message = %s, error_message = %s, finished_at = %s, updated_at = %s
+                    WHERE id = %s
+                    """,
+                    (status_message[:2000], (error_message or "")[:4000], now, now, job_id),
+                )
+
+
 def run_report_job(job_id: str, organization_id: str) -> dict | None:
     now = datetime.now(timezone.utc)
     job_payload = None
