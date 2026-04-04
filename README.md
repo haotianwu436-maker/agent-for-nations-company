@@ -65,6 +65,47 @@ scripts/        内部脚本（研发辅助）
 
 完整步骤：`docs/deployment.md`、`docs/local-development.md`
 
+## 快速启动 & 测试
+
+### 1) 初始化知识库（可选但推荐）
+
+```bash
+python demo/ingest_demo.py --demo_dir demo/kb_examples
+```
+
+### 2) 启动后端与前端
+
+```bash
+# API
+cd apps/api
+python -m uvicorn app.main:app --host 0.0.0.0 --port 8000
+
+# Web
+cd apps/web
+npm install
+npm run dev
+```
+
+### 3) 测试纯聊天接口
+
+```bash
+curl -X POST "http://127.0.0.1:8000/api/v1/agent/chat" \
+  -H "Authorization: Bearer <token>" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "query":"结合我们内部宣传要点，生成一份本周媒体AI趋势报告",
+    "use_llm_writing":true,
+    "need_internal_kb":true
+  }'
+```
+
+### 4) 测试知识库状态与刷新
+
+```bash
+curl -X GET "http://127.0.0.1:8000/api/v1/agent/kb/status" -H "Authorization: Bearer <token>"
+curl -X POST "http://127.0.0.1:8000/api/v1/agent/kb/refresh" -H "Authorization: Bearer <token>"
+```
+
 ## 环境依赖要求
 
 - Python `3.11.x`（推荐）

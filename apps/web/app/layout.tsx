@@ -1,3 +1,4 @@
+import "./globals.css";
 import "./styles.css";
 import React, { Suspense } from "react";
 import AppShell from "./components/app-shell";

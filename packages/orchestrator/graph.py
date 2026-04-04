@@ -4,13 +4,13 @@ LangGraph 报告 Agent 编排。
 Phase 1：planner → legacy_pipeline（内嵌原 execute_workflow）→ validator
 Phase 2+：拆分 pipeline 节点并增加条件边 / Human-in-the-loop。
 
-Checkpoint：默认 MemorySaver；若安装 langgraph-checkpoint-postgres 且设置 LANGGRAPH_CHECKPOINT_PG_URI，可换 PostgresSaver。
+支持流式输出（astream），每个节点执行后会 yield 包含 __node__ 标识的状态。
 """
 from __future__ import annotations
 
 import logging
 import os
-from typing import Any
+from typing import Any, AsyncGenerator
 
 from langgraph.checkpoint.memory import MemorySaver
 from langgraph.graph import END, StateGraph
@@ -39,7 +39,7 @@ def _make_checkpointer() -> Any:
     if not uri:
         return MemorySaver()
     try:
-        from langgraph.checkpoint.postgres import PostgresSaver  # type: ignore
+        from langgraph.checkpoint.postgres import PostgresSaver
 
         return PostgresSaver.from_conn_string(uri)
     except Exception as exc:
@@ -92,3 +92,54 @@ def get_report_agent_graph():
 def reset_report_agent_graph() -> None:
     global _compiled_graph
     _compiled_graph = None
+
+
+async def _astream_with_node_name(
+    graph: Any,
+    initial_state: dict[str, Any],
+    config: dict[str, Any],
+) -> AsyncGenerator[dict[str, Any], None]:
+    """
+    包装 graph.astream，在每个输出中注入 _node_name 标识。
+    用于流式 SSE 时的步骤识别。
+    """
+    current_node = ""
+    try:
+        async for chunk in graph.astream(initial_state, config):
+            if isinstance(chunk, dict):
+                # Try to extract node name from different sources
+                node_name = chunk.get("_node_name", "")
+                
+                # If not present, try to infer from state changes
+                if not node_name:
+                    # Check which keys changed to infer the node
+                    if "plan" in chunk and chunk["plan"] is not None and "collected_docs" not in chunk:
+                        node_name = "planner"
+                    elif "collected_docs" in chunk:
+                        node_name = "retriever"
+                    elif "cleaned_docs" in chunk:
+                        node_name = "cleaner"
+                    elif "deduplicated_docs" in chunk:
+                        node_name = "deduplicator"
+                    elif "section_map" in chunk:
+                        node_name = "classifier"
+                    elif "sections" in chunk:
+                        node_name = "section_generator"
+                    elif "citations" in chunk:
+                        node_name = "citation"
+                    elif "charts" in chunk:
+                        node_name = "chart"
+                    elif "markdown" in chunk or "final_report" in chunk:
+                        node_name = "assembler"
+                    elif "grounded_score" in chunk or "needs_human" in chunk:
+                        node_name = "validator"
+                
+                if node_name and node_name != current_node:
+                    current_node = node_name
+                
+                chunk["_node_name"] = current_node
+                chunk["__node__"] = current_node
+            yield chunk
+    except Exception as exc:
+        logger.exception("astream_with_node_name failed: %s", exc)
+        yield {"_node_name": "error", "__node__": "error", "error": str(exc), "status": "failed"}
